@@ -7,10 +7,9 @@ import com.netflix.astyanax.connectionpool.impl.{ConnectionPoolConfigurationImpl
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl
 import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.serializers.UUIDSerializer
-import com.netflix.astyanax.serializers.StringSerializer
-import com.netflix.astyanax.serializers.FloatSerializer
+import com.netflix.astyanax.serializers._
 import com.netflix.astyanax.thrift.ThriftFamilyFactory
+import org.apache.cassandra.db.marshal.{UTF8Type}
 
 import scala.collection.JavaConversions._
 
@@ -37,8 +36,9 @@ object CassandraScanner extends App {
       .buildKeyspace(ThriftFamilyFactory.getInstance())
    context.start()
    val keyspace = context.getClient()
+   val setSer = new SetSerializer[String](UTF8Type.instance)
    val cf = new ColumnFamily[UUID, String]("cf", UUIDSerializer.get, StringSerializer.get)
-   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating from movies").execute()
+   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating, genres from movies").execute()
    val data = result.getResult.getRows()
    for {
       row <- data
@@ -46,7 +46,10 @@ object CassandraScanner extends App {
    } {
       val name = col.getColumnByName("name")
       val avgRating = col.getColumnByName("avg_rating")
-      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue}")
+      val genres = col.getColumnByName("genres")
+      val genValue = genres.getValue(setSer).toSet
+      //val genValue = col.getValue("genres", new SetSerializer[String](UTF8Type.instance), Set[String]())
+      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue} genres: ${genValue}")
    }
    context.shutdown()
 }
