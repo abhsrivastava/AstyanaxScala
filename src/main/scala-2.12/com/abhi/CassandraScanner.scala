@@ -9,6 +9,7 @@ import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.model.ColumnFamily
 import com.netflix.astyanax.serializers.UUIDSerializer
 import com.netflix.astyanax.serializers.StringSerializer
+import com.netflix.astyanax.serializers.FloatSerializer
 import com.netflix.astyanax.thrift.ThriftFamilyFactory
 
 import scala.collection.JavaConversions._
@@ -36,14 +37,16 @@ object CassandraScanner extends App {
       .buildKeyspace(ThriftFamilyFactory.getInstance())
    context.start()
    val keyspace = context.getClient()
-   val cf = new ColumnFamily[UUID, String]("cf", UUIDSerializer.get, StringSerializer.get())
-   val result = keyspace.prepareQuery(cf).withCql("select name from movies").execute()
+   val cf = new ColumnFamily[UUID, String]("cf", UUIDSerializer.get, StringSerializer.get)
+   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating from movies").execute()
    val data = result.getResult.getRows()
    for {
       row <- data
-      col <- row.getColumns
+      col = row.getColumns
    } {
-      println(col.getStringValue)
+      val name = col.getColumnByName("name")
+      val avgRating = col.getColumnByName("avg_rating")
+      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue}")
    }
    context.shutdown()
 }
