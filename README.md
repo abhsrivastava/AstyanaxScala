@@ -1,4 +1,4 @@
-# Sample application to query cassandra using Astyanax library
+# Sample Scala application to query cassandra using Astyanax library
 
 ## install the cassandra image using 
 
