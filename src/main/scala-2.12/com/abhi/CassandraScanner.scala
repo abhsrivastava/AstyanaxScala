@@ -40,6 +40,7 @@ object CassandraScanner extends App {
    val cf = new ColumnFamily[UUID, String]("cf", UUIDSerializer.get, StringSerializer.get)
    val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating, genres from movies").execute()
    val data = result.getResult.getRows()
+   println("size: " + data.size())
    for {
       row <- data
       col = row.getColumns
