@@ -12,7 +12,7 @@ object CassandraReader extends App with CassandraHelper {
    val keyspace = context.getClient()
    val setSer = new SetSerializer[String](UTF8Type.instance)
    val cf = getColumnFamily()
-   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating from movies").execute()
+   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating, genres from movies").execute()
    val data = result.getResult.getRows()
    println("size: " + data.size())
    for {
@@ -21,9 +21,9 @@ object CassandraReader extends App with CassandraHelper {
    } {
       val name = col.getColumnByName("name")
       val avgRating = col.getColumnByName("avg_rating")
-//      val genres = col.getColumnByName("genres")
-//      val genValue = genres.getValue(setSer).toSet
-      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue}")
+      val genres = col.getColumnByName("genres")
+      val genValue = genres.getValue(setSer).toSet
+      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue} genres: ${genValue}")
    }
    context.shutdown()
 }
