@@ -1,56 +1,31 @@
 package com.abhi
 
-import java.util.UUID
-
-import com.netflix.astyanax.connectionpool.NodeDiscoveryType
-import com.netflix.astyanax.connectionpool.impl.{ConnectionPoolConfigurationImpl, CountingConnectionPoolMonitor, SimpleAuthenticationCredentials}
-import com.netflix.astyanax.impl.AstyanaxConfigurationImpl
-import com.netflix.astyanax.AstyanaxContext
-import com.netflix.astyanax.model.ColumnFamily
-import com.netflix.astyanax.serializers._
-import com.netflix.astyanax.thrift.ThriftFamilyFactory
-import org.apache.cassandra.db.marshal.{UTF8Type}
-
-import scala.collection.JavaConversions._
-
 /**
-  * Created by abhsrivastava on 11/3/16.
+  * Created by abhsrivastava on 11/6/16.
   */
-object CassandraScanner extends App {
 
-   val configImpl = new AstyanaxConfigurationImpl()
-   configImpl.setDiscoveryType(NodeDiscoveryType.NONE)
-   configImpl.setCqlVersion("3.4.2")
-   configImpl.setTargetCassandraVersion("3.7")
-   val poolConfig = new ConnectionPoolConfigurationImpl("MyConnectionPool")
-   poolConfig.setPort(9160)
-   poolConfig.setMaxConnsPerHost(1)
-   poolConfig.setSeeds("192.168.1.169:9160")
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
-   val context = new AstyanaxContext.Builder()
-      .forCluster("localhost")
-      .forKeyspace("movielens_small")
-      .withAstyanaxConfiguration(configImpl)
-      .withConnectionPoolConfiguration(poolConfig)
-      .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
-      .buildKeyspace(ThriftFamilyFactory.getInstance())
-   context.start()
-   val keyspace = context.getClient()
-   val setSer = new SetSerializer[String](UTF8Type.instance)
-   val cf = new ColumnFamily[UUID, String]("cf", UUIDSerializer.get, StringSerializer.get)
-   val result = keyspace.prepareQuery(cf).withCql("select name, avg_rating, genres from movies").execute()
-   val data = result.getResult.getRows()
-   println("size: " + data.size())
-   for {
-      row <- data
-      col = row.getColumns
-   } {
-      val name = col.getColumnByName("name")
-      val avgRating = col.getColumnByName("avg_rating")
-      val genres = col.getColumnByName("genres")
-      val genValue = genres.getValue(setSer).toSet
-      //val genValue = col.getValue("genres", new SetSerializer[String](UTF8Type.instance), Set[String]())
-      println(s"${name.getStringValue} rating: ${avgRating.getFloatValue} genres: ${genValue}")
-   }
-   context.shutdown()
+import com.netflix.astyanax.recipes.reader.AllRowsReader
+import com.netflix.astyanax.model.Row
+object CassandraScanner extends App with CassandraHelper {
+   val context = getContext("movielens_small")
+   val cf = getColumnFamily()
+   val keyspace = context.getClient
+   var count : AtomicInteger = new AtomicInteger(0)
+   val allReader = new AllRowsReader.Builder(keyspace, cf)
+      .withPageSize(100)
+      .withConcurrencyLevel(10)
+      .withPartitioner(null)
+      .forEachRow { case row : Row[UUID, String] =>
+            val cols = row.getColumns
+            val movieName = cols.getColumnByName("name")
+            val movieNameVal = movieName.getStringValue
+            count.incrementAndGet()
+            true
+      }
+      .build()
+      .call()
+   println(s"Total value ${count.get()}")
 }
