@@ -15,7 +15,7 @@ import com.typesafe.config.ConfigFactory
   * Created by abhsrivastava on 11/6/16.
   */
 trait CassandraHelper {
-   def getContext(tableName : String) : AstyanaxContext[Keyspace] = {
+   def getContext(keyspaceName : String) : AstyanaxContext[Keyspace] = {
       val config = ConfigFactory.load()
       val configImpl = new AstyanaxConfigurationImpl()
       configImpl.setDiscoveryType(NodeDiscoveryType.NONE)
@@ -28,16 +28,12 @@ trait CassandraHelper {
 
       val context = new AstyanaxContext.Builder()
          .forCluster("localhost")
-         .forKeyspace(tableName)
+         .forKeyspace(keyspaceName)
          .withAstyanaxConfiguration(configImpl)
          .withConnectionPoolConfiguration(poolConfig)
          .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
          .buildKeyspace(ThriftFamilyFactory.getInstance())
       context.start()
       context
-   }
-
-   def getColumnFamily() : ColumnFamily[UUID, String] = {
-      new ColumnFamily[UUID, String]("movielens_small", UUIDSerializer.get, StringSerializer.get)
    }
 }
